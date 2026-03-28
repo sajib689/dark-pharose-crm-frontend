@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import StatusPill from "@/components/ui/StatusPill";
 import ProjectDetailPanel from "@/components/projects/ProjectDetailPanel";
 import { useGetProjectsQuery, useDeleteProjectMutation } from "@/lib/store/api";
@@ -9,7 +10,7 @@ import { twMerge } from "tailwind-merge";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
-const FILTERS = ["ALL", "OVERDUE", "WIP", "DELIVERED", "REVISION", "COMPLETED", "PUBLISHING", "CANCEL"];
+const FILTERS = ["ALL", "OVERDUE", "WIP", "REVISION", "COMPLETED", "PUBLISHING", "CANCEL"];
 
 export default function ProjectsListClient() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,6 +20,30 @@ export default function ProjectsListClient() {
   const [limit] = useState(10);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const urlStatus = searchParams.get("status");
+
+  // Sync state with URL parameter on mount or URL change
+  useEffect(() => {
+    if (urlStatus && FILTERS.includes(urlStatus.toUpperCase())) {
+      setActiveFilter(urlStatus.toUpperCase());
+    }
+  }, [urlStatus]);
+
+  // Update URL function
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    setPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    if (filter === "ALL") {
+      params.delete("status");
+    } else {
+      params.set("status", filter);
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   const { data, isLoading } = useGetProjectsQuery({
     search: searchTerm,
@@ -108,10 +133,7 @@ export default function ProjectsListClient() {
           {FILTERS.map((filter) => (
             <button
               key={filter}
-              onClick={() => {
-                setActiveFilter(filter);
-                setPage(1);
-              }}
+              onClick={() => handleFilterChange(filter)}
               className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-bold font-headline transition-all",
                 activeFilter === filter
@@ -130,15 +152,15 @@ export default function ProjectsListClient() {
         <table className="w-full text-left border-collapse">
           <thead className="bg-surface-container-low">
             <tr>
-              {["Client", "Phase", "Status", "Contract", "Received", "Remaining", "Deadline", "Actions"].map((h, i) => (
-                <th key={h} className={cn("px-4 py-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-mono whitespace-nowrap", i === 0 && "px-6", i === 7 && "text-right")}>{h}</th>
+              {["Client", "Phase", "Team", "Status", "Contract", "Received", "Remaining", "Deadline", "Actions"].map((h, i) => (
+                <th key={h} className={cn("px-4 py-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-mono whitespace-nowrap", i === 0 && "px-6", i === 8 && "text-right")}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/10 text-[13px]">
             {isLoading && [...Array(5)].map((_, i) => (
               <tr key={i} className="animate-pulse">
-                {[...Array(8)].map((__, j) => (
+                {[...Array(9)].map((__, j) => (
                   <td key={j} className="px-4 py-5">
                     <div className="h-5 rounded bg-surface-container-low" />
                   </td>
@@ -172,6 +194,23 @@ export default function ProjectsListClient() {
                     </div>
                   </td>
                   <td className="px-4 py-5 font-mono text-violet-300/80 text-xs">{project.phase}</td>
+                  <td className="px-4 py-5">
+                    <div className="flex -space-x-2 overflow-hidden items-center group/team">
+                      {project.members?.map((m: any, idx: number) => (
+                        <div 
+                          key={m.id} 
+                          title={`${m.user?.displayName} (${m.roleInProject.replace(/_/g, ' ')})`} 
+                          className="w-7 h-7 rounded-full border-2 border-surface bg-surface-container-highest flex items-center justify-center text-[9px] font-bold text-primary shadow-sm hover:z-10 hover:-translate-y-1 transition-all cursor-help"
+                          style={{ zIndex: 10 - idx }}
+                        >
+                          {m.user?.displayName?.charAt(0) || m.user?.name?.charAt(0)}
+                        </div>
+                      ))}
+                      {(!project.members || project.members.length === 0) && (
+                        <span className="text-[10px] font-mono text-on-surface-variant/40 italic">Unassigned</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-5"><StatusPill status={project.status} /></td>
                   <td className="px-4 py-5 font-mono text-on-surface font-bold text-xs">${(project.totalPayment || 0).toLocaleString()}</td>
                   <td className="px-4 py-5 font-mono text-emerald-400 font-bold text-xs">${(project.currentPayment || 0).toLocaleString()}</td>

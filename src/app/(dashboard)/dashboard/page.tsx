@@ -13,7 +13,30 @@ export default function DashboardPage() {
   const { data: projectsData, isLoading: projLoading } = useGetProjectsQuery({});
   
   const allProjects = projectsData?.projects || [];
-  const safeStats = dashboardData?.stats || { activeProjectsCount: 0, totalRevenue: 0, teamMembersCount: 0, avgDeliveryDays: 0, overdueCount: 0 };
+  const now = new Date();
+  
+  // Real-time calculations from project list to ensure UI matches data exactly
+  const total = allProjects.filter((p: any) => p.status !== 'CANCEL').length;
+  const completed = allProjects.filter((p: any) => p.status === 'COMPLETED').length;
+  const overdue = allProjects.filter((p: any) => 
+    !['COMPLETED', 'CANCEL'].includes(p.status) && 
+    p.deliveryDate && new Date(p.deliveryDate) < now
+  ).length;
+  const onTrack = allProjects.filter((p: any) => 
+    !['COMPLETED', 'CANCEL'].includes(p.status) && 
+    (!p.deliveryDate || new Date(p.deliveryDate) >= now)
+  ).length;
+
+  const safeStats = dashboardData?.stats || { 
+    totalCount: total, 
+    activeProjectsCount: onTrack + overdue, 
+    wipOnTrackCount: onTrack, 
+    completedCount: completed, 
+    overdueCount: overdue, 
+    totalRevenue: 0, 
+    teamMembersCount: 0, 
+    avgDeliveryDays: 0 
+  };
   const recentProjects = allProjects.slice(0, 5);
 
   if (statsLoading || projLoading) {
@@ -44,7 +67,7 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <Link href="/projects?status=WIP" className="bg-error text-on-error px-4 py-1.5 rounded-lg text-[11px] font-bold font-headline uppercase tracking-widest hover:scale-95 transition-all">
+          <Link href="/projects?status=OVERDUE" className="bg-error text-on-error px-4 py-1.5 rounded-lg text-[11px] font-bold font-headline uppercase tracking-widest hover:scale-95 transition-all">
             Review Missions
           </Link>
         </div>
@@ -113,22 +136,29 @@ export default function DashboardPage() {
               <div className="relative w-32 h-32 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle className="text-surface-container-highest" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeWidth="10" />
-                  <circle className="text-primary" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeDasharray="364.4" strokeDashoffset="120" strokeWidth="10" />
+                  <circle 
+                    className="text-primary transition-all duration-1000 ease-out" 
+                    cx="64" cy="64" 
+                    fill="transparent" r="58" 
+                    stroke="currentColor" strokeWidth="10"
+                    strokeDasharray="364.4"
+                    strokeDashoffset={364.4 - (364.4 * (safeStats.activeProjectsCount / (safeStats.totalCount || 1)))}
+                  />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold font-mono">{allProjects.length}</span>
+                  <span className="text-xl font-bold font-mono">{safeStats.totalCount}</span>
                   <span className="text-[9px] uppercase tracking-tighter text-on-surface-variant">Total</span>
                 </div>
               </div>
               <div className="space-y-3">
                 {[
-                  { label: "WIP", color: "bg-primary", count: allProjects.filter((p: any) => p.status === "WIP").length },
-                  { label: "Completed", color: "bg-tertiary", count: allProjects.filter((p: any) => p.status === "COMPLETED").length },
-                  { label: "Overdue", color: "bg-error", count: safeStats.overdueCount || 0 },
+                  { label: "On Track", color: "bg-primary", count: safeStats.wipOnTrackCount },
+                  { label: "Overdue", color: "bg-error", count: safeStats.overdueCount },
+                  { label: "Completed", color: "bg-tertiary", count: safeStats.completedCount },
                 ].map(({ label, color, count }) => (
                   <div key={label} className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${color}`}></span>
-                    <span className="text-[11px] font-mono">{label}: {count}</span>
+                    <span className="text-[11px] font-mono">{label}: <span className="text-on-surface font-bold">{count}</span></span>
                   </div>
                 ))}
               </div>

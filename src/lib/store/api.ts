@@ -121,7 +121,7 @@ export const pharosApi = createApi({
       query: () => "/kpi",
       providesTags: ["KPI"],
     }),
-    updateKpiSettings: builder.mutation<any, { frontendPct: number; uiuxPct: number; backendPct: number }>({
+    updateKpiSettings: builder.mutation<any, { frontendPct: number; uiuxPct: number; backendPct: number; appDevPct: number }>({
       query: (body) => ({ url: "/kpi", method: "PUT", body }),
       invalidatesTags: ["KPI"],
     }),

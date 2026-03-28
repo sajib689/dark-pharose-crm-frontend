@@ -27,7 +27,7 @@ const PLATFORMS = [
   { label: "Web Project", value: "WEB" },
   { label: "App Project", value: "APP" },
 ];
-const ROLES = ["FRONTEND_DEV", "UI_UX_DESIGNER", "BACKEND_DEV", "PROJECT_MANAGER"];
+const ROLES = ["FRONTEND_DEV", "UI_UX_DESIGNER", "BACKEND_DEV", "APP_DEV", "PROJECT_MANAGER"];
 
 interface Props { onClose: () => void; }
 

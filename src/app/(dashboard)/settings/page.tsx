@@ -45,18 +45,21 @@ export default function SettingsPage() {
   const [frontendPct, setFrontendPct] = useState("");
   const [uiuxPct, setUiuxPct] = useState("");
   const [backendPct, setBackendPct] = useState("");
+  const [appDevPct, setAppDevPct] = useState("");
   const [kpiMsg, setKpiMsg] = useState("");
 
   const handleKpiUpdate = async () => {
     const f = parseFloat(frontendPct || String(kpiSettings?.settings?.frontendPct ?? 43));
     const u = parseFloat(uiuxPct || String(kpiSettings?.settings?.uiuxPct ?? 25));
     const b = parseFloat(backendPct || String(kpiSettings?.settings?.backendPct ?? 32));
-    if (Math.abs(f + u + b - 100) > 0.01) {
+    const a = parseFloat(appDevPct || String(kpiSettings?.settings?.appDevPct ?? 0));
+    
+    if (Math.abs(f + u + b + a - 100) > 0.01) {
       setKpiMsg("Error: Percentages must sum to 100%");
       return;
     }
     try {
-      await updateKpi({ frontendPct: f, uiuxPct: u, backendPct: b }).unwrap();
+      await updateKpi({ frontendPct: f, uiuxPct: u, backendPct: b, appDevPct: a }).unwrap();
       setKpiMsg("✅ KPI settings updated successfully.");
       setTimeout(() => setKpiMsg(""), 3000);
     } catch {
@@ -155,13 +158,14 @@ export default function SettingsPage() {
             KPI Distribution Settings
           </h2>
           <p className="text-xs text-on-surface-variant font-mono">
-            Current: FE {kpiSettings?.frontendPct ?? 43}% / UI/UX {kpiSettings?.uiuxPct ?? 25}% / BE {kpiSettings?.backendPct ?? 32}%
+            Current: FE {kpiSettings?.settings?.frontendPct ?? 43}% / UI/UX {kpiSettings?.settings?.uiuxPct ?? 25}% / BE {kpiSettings?.settings?.backendPct ?? 32}% / APP {kpiSettings?.settings?.appDevPct ?? 0}%
           </p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Frontend Dev (%)", value: frontendPct, onChange: setFrontendPct, placeholder: String(kpiSettings?.frontendPct ?? 43) },
-              { label: "UI/UX Designer (%)", value: uiuxPct, onChange: setUiuxPct, placeholder: String(kpiSettings?.uiuxPct ?? 25) },
-              { label: "Backend Dev (%)", value: backendPct, onChange: setBackendPct, placeholder: String(kpiSettings?.backendPct ?? 32) },
+              { label: "Frontend (%)", value: frontendPct, onChange: setFrontendPct, placeholder: String(kpiSettings?.settings?.frontendPct ?? 43) },
+              { label: "UI/UX (%)", value: uiuxPct, onChange: setUiuxPct, placeholder: String(kpiSettings?.settings?.uiuxPct ?? 25) },
+              { label: "Backend (%)", value: backendPct, onChange: setBackendPct, placeholder: String(kpiSettings?.settings?.backendPct ?? 32) },
+              { label: "App Dev (%)", value: appDevPct, onChange: setAppDevPct, placeholder: String(kpiSettings?.settings?.appDevPct ?? 0) },
             ].map(({ label, value, onChange, placeholder }) => (
               <div key={label} className="space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">{label}</label>

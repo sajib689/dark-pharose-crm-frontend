@@ -16,10 +16,11 @@ const ROLE_COLORS: Record<string, string> = {
   FRONTEND_DEV: "bg-tertiary/15 border-tertiary/20 text-tertiary",
   UI_UX_DESIGNER: "bg-on-primary-container/15 border-on-primary-container/20 text-on-primary-container",
   BACKEND_DEV: "bg-error/15 border-error/20 text-error",
+  APP_DEV: "bg-indigo-500/15 border-indigo-500/20 text-indigo-400",
 };
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin", PROJECT_MANAGER: "PM",
-  FRONTEND_DEV: "Frontend Dev", UI_UX_DESIGNER: "UI/UX", BACKEND_DEV: "Backend Dev",
+  FRONTEND_DEV: "Frontend Dev", UI_UX_DESIGNER: "UI/UX", BACKEND_DEV: "Backend Dev", APP_DEV: "App Dev",
 };
 
 export default function TeamPage() {

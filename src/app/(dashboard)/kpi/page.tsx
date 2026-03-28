@@ -69,6 +69,7 @@ export default function KPIPage() {
               { label: `FE (${kpiSettings?.frontendPct ?? 43}%)`, color: "bg-primary" },
               { label: `BE (${kpiSettings?.backendPct ?? 32}%)`, color: "bg-secondary" },
               { label: `UI/UX (${kpiSettings?.uiuxPct ?? 25}%)`, color: "bg-tertiary" },
+              { label: `APP (${kpiSettings?.appDevPct ?? 0}%)`, color: "bg-indigo-500" },
             ].map(({ label, color }) => (
               <div key={label} className="flex items-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${color}`}></span>
@@ -86,7 +87,10 @@ export default function KPIPage() {
             <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">BE</span>
           </div>
           <div className="h-full bg-gradient-to-r from-tertiary-container to-tertiary transition-all duration-700" style={{ width: `${kpiSettings?.uiuxPct ?? 25}%` }}>
-            <span className="text-[10px] font-bold flex items-center justify-center h-full">UI</span>
+            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">UI</span>
+          </div>
+          <div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all duration-700" style={{ width: `${kpiSettings?.appDevPct ?? 0}%` }}>
+            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">APP</span>
           </div>
         </div>
       </section>

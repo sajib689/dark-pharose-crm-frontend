@@ -14,6 +14,7 @@ const ROLES = [
   { label: "Frontend Dev", value: "FRONTEND_DEV" },
   { label: "UI/UX Designer", value: "UI_UX_DESIGNER" },
   { label: "Backend Dev", value: "BACKEND_DEV" },
+  { label: "App Dev", value: "APP_DEV" },
 ];
 
 export default function NewMemberModal({ onClose }: Props) {
