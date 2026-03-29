@@ -8,6 +8,8 @@ import {
   useGetKpiEarningsQuery,
   useGetMyEarningsQuery,
   useUpdateEarningMutation,
+  useUpdateKpiSettingsMutation,
+  useSyncProjectsMutation,
 } from "@/lib/store/api";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
@@ -28,7 +30,10 @@ export default function KPIPage() {
   const { data: earningsData } = useGetKpiEarningsQuery({ page, limit: 10 }, { skip: !isAdmin });
   const [markPaid, { isLoading: isMarkingPaid }] = useMarkEarningPaidMutation();
   const [updateEarning] = useUpdateEarningMutation();
+  const [updateKpiSettings] = useUpdateKpiSettingsMutation();
+  const [syncProjects, { isLoading: isSyncing }] = useSyncProjectsMutation();
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Settle modal state
   const [settleMember, setSettleMember] = useState<any>(null);
@@ -75,10 +80,41 @@ export default function KPIPage() {
     }
   };
 
+  const handleUpdateSettings = async (data: any) => {
+    try {
+      await updateKpiSettings(data).unwrap();
+      toast.success("Global KPI distribution updated.");
+      setShowSettings(false);
+    } catch (err) {
+      toast.error("Failed to update global settings.");
+    }
+  };
+
+  const handleSyncMissions = async () => {
+    try {
+      const res = await syncProjects().unwrap();
+      toast.success(res.message || "Missions synchronized and KPIs recalculated.");
+    } catch (err) {
+      toast.error("Failed to sync missions.");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header className="flex justify-between items-center w-full">
         <h1 className="text-xl font-bold tracking-tighter text-violet-400 uppercase font-headline">KPI &amp; Earnings</h1>
+        {isAdmin && (
+          <button 
+            onClick={handleSyncMissions}
+            disabled={isSyncing}
+            className="bg-surface-container-low border border-outline-variant/20 px-4 py-2 rounded-xl text-xs font-bold font-headline hover:bg-primary hover:text-white transition-all flex items-center gap-2"
+          >
+            <span className={cn("material-symbols-outlined text-sm", isSyncing && "animate-spin")}>
+              {isSyncing ? "sync" : "refresh"}
+            </span>
+            {isSyncing ? "Synchronizing..." : "Sync Missions"}
+          </button>
+        )}
       </header>
 
       {/* Summary Section */}
@@ -114,6 +150,14 @@ export default function KPIPage() {
           <div>
             <h3 className="text-lg font-headline font-bold text-primary flex items-center gap-2">
               <span className="material-symbols-outlined">analytics</span>KPI Rules Distribution
+              {isAdmin && (
+                <button 
+                  onClick={() => setShowSettings(true)}
+                  className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all ml-1"
+                >
+                  <span className="material-symbols-outlined text-xs">edit</span>
+                </button>
+              )}
             </h3>
             <p className="text-sm text-slate-400 mt-1">Weighting allocation across engineering departments</p>
           </div>
@@ -237,6 +281,58 @@ export default function KPIPage() {
           onUpdate={handleUpdateEarning}
         />
       )}
+
+      {showSettings && (
+        <KpiSettingsModal 
+          settings={kpiSettings}
+          onClose={() => setShowSettings(false)}
+          onUpdate={handleUpdateSettings}
+        />
+      )}
+    </div>
+  );
+}
+
+function KpiSettingsModal({ settings, onClose, onUpdate }: any) {
+  const [formData, setFormData] = useState({
+    frontendPct: settings?.frontendPct ?? 43,
+    backendPct: settings?.backendPct ?? 32,
+    uiuxPct: settings?.uiuxPct ?? 25,
+    appDevPct: settings?.appDevPct ?? 0,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+      <div className="bg-surface w-full max-w-md rounded-3xl border border-outline-variant/10 shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
+        <h2 className="text-2xl font-bold font-headline tracking-tighter mb-6">Global KPI Rules</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {Object.entries(formData).map(([key, value]) => (
+            <div key={key}>
+              <label className="text-[10px] uppercase font-bold text-outline tracking-widest mb-1 block">
+                {key.replace("Pct", "").replace("uiux", "UI/UX").toUpperCase()} PERCENTAGE
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={value}
+                  onChange={(e) => setFormData({ ...formData, [key]: parseFloat(e.target.value) })}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-4 py-3 font-mono focus:border-primary outline-none transition-all"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-outline">%</span>
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-3 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 px-6 py-3 rounded-xl border border-outline-variant/20 font-bold hover:bg-surface-container transition-all">Cancel</button>
+            <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">Update Rules</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

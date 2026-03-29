@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCreateProjectMutation, useGetTeamQuery } from "@/lib/store/api";
+import { useCreateProjectMutation, useGetTeamQuery, useGetKpiSettingsQuery } from "@/lib/store/api";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -45,7 +45,14 @@ export default function NewProjectModal({ onClose }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: team = [] } = useGetTeamQuery();
+  const { data: kpiData } = useGetKpiSettingsQuery();
   const [createProject, { isLoading }] = useCreateProjectMutation();
+
+  const kpiSettings = kpiData?.settings;
+  const fePct = kpiSettings?.frontendPct ?? 43;
+  const bePct = kpiSettings?.backendPct ?? 32;
+  const uiPct = kpiSettings?.uiuxPct ?? 25;
+  const appPct = kpiSettings?.appDevPct ?? 0;
 
   const set = (field: string, value: any) => setForm((prev: any) => ({ ...prev, [field]: value }));
 
@@ -242,12 +249,36 @@ export default function NewProjectModal({ onClose }: Props) {
               )}
 
               {/* KPI Preview */}
-              {form.totalPayment && (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-mono font-bold text-primary uppercase tracking-widest">💡 KPI Preview</p>
-                  <p className="text-xs text-on-surface-variant">
-                    Contract: <span className="text-on-surface font-mono">${parseFloat(form.totalPayment || "0").toLocaleString()}</span>
-                    {" "} — KPI will split automatically among assigned roles at project creation.
+              {form.totalPayment && form.members.length > 0 && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-mono font-bold text-primary uppercase tracking-widest">💡 Dynamic KPI Distribution</p>
+                    <span className="text-[10px] font-mono text-primary/60 bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">System Alpha</span>
+                  </div>
+                  <div className="space-y-3">
+                    {form.members.map((m: any) => {
+                      let pct = 0;
+                      if (m.roleInProject === "FRONTEND_DEV") pct = fePct;
+                      else if (m.roleInProject === "BACKEND_DEV") pct = bePct;
+                      else if (m.roleInProject === "UI_UX_DESIGNER") pct = uiPct;
+                      else if (m.roleInProject === "APP_DEV") pct = appPct;
+                      
+                      const amount = (parseFloat(form.totalPayment || "0") * pct) / 100;
+                      
+                      return (
+                        <div key={m.userId} className="flex items-center justify-between border-b border-primary/10 pb-2 last:border-0 last:pb-0">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                            <span className="text-sm font-bold text-on-surface">{getMemberName(m.userId)}</span>
+                            <span className="text-[10px] text-on-surface-variant uppercase font-mono bg-surface-container px-2 py-0.5 rounded-md">{pct}%</span>
+                          </div>
+                          <span className="font-mono text-sm font-bold text-primary">${amount.toLocaleString()}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant font-medium leading-relaxed">
+                    * Amounts are projected based on the <span className="text-primary font-bold">Global Calculation Matrix</span> and will be formally assigned to operative accounts upon deployment.
                   </p>
                 </div>
               )}
