@@ -7,6 +7,7 @@ import ProjectDetailPanel from "@/components/projects/ProjectDetailPanel";
 import { useGetProjectsQuery, useDeleteProjectMutation } from "@/lib/store/api";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import CopyToClipboard from "@/components/ui/CopyToClipboard";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -152,8 +153,8 @@ export default function ProjectsListClient() {
         <table className="w-full text-left border-collapse">
           <thead className="bg-surface-container-low">
             <tr>
-              {["Client", "Phase", "Team", "Status", "Contract", "Received", "Remaining", "Deadline", "Actions"].map((h, i) => (
-                <th key={h} className={cn("px-4 py-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-mono whitespace-nowrap", i === 0 && "px-6", i === 8 && "text-right")}>{h}</th>
+              {["Client", "Phase", "Team", "Status", "Contract", "Received", "Remaining", "Pending", "Deadline", "Actions"].map((h, i) => (
+                <th key={h} className={cn("px-4 py-4 text-[11px] uppercase tracking-widest text-on-surface-variant font-mono whitespace-nowrap", i === 0 && "px-6", i === 9 && "text-right")}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -189,7 +190,9 @@ export default function ProjectsListClient() {
                             <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[9px] font-bold uppercase tracking-widest border border-violet-500/20">Add-On</span>
                           )}
                         </div>
-                        <p className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">#{project.orderId}</p>
+                        <CopyToClipboard text={project.orderId}>
+                          <p className="text-[11px] font-mono text-on-surface-variant uppercase tracking-widest">#{project.orderId}</p>
+                        </CopyToClipboard>
                       </div>
                     </div>
                   </td>
@@ -212,9 +215,18 @@ export default function ProjectsListClient() {
                     </div>
                   </td>
                   <td className="px-4 py-5"><StatusPill status={project.status} /></td>
-                  <td className="px-4 py-5 font-mono text-on-surface font-bold text-xs">${(project.totalPayment || 0).toLocaleString()}</td>
-                  <td className="px-4 py-5 font-mono text-emerald-400 font-bold text-xs">${(project.currentPayment || 0).toLocaleString()}</td>
-                  <td className="px-4 py-5 font-mono text-orange-400 font-bold text-xs">${(project.remainingPayment || 0).toLocaleString()}</td>
+                  <td className="px-4 py-5 font-mono text-on-surface font-bold text-xs" onClick={(e) => e.stopPropagation()}>
+                    <CopyToClipboard text={project.totalPayment?.toString()} />
+                  </td>
+                  <td className="px-4 py-5 font-mono text-emerald-400 font-bold text-xs" onClick={(e) => e.stopPropagation()}>
+                    <CopyToClipboard text={project.currentPayment?.toString()} />
+                  </td>
+                  <td className="px-4 py-5 font-mono text-orange-400 font-bold text-xs" onClick={(e) => e.stopPropagation()}>
+                    <CopyToClipboard text={project.remainingPayment?.toString()} />
+                  </td>
+                  <td className="px-4 py-5 font-mono text-violet-400 font-bold text-xs" onClick={(e) => e.stopPropagation()}>
+                    <CopyToClipboard text={project.pendingPayment?.toString()} />
+                  </td>
                   <td className="px-4 py-5">
                     <div className="flex flex-col">
                       <span className="font-mono text-[12px]">{project.deliveryDate ? new Date(project.deliveryDate).toLocaleDateString() : 'N/A'}</span>

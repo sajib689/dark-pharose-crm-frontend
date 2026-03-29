@@ -10,7 +10,7 @@ function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
 export default function DashboardPage() {
   const { data: dashboardData, isLoading: statsLoading } = useGetDashboardStatsQuery();
-  const { data: projectsData, isLoading: projLoading } = useGetProjectsQuery({});
+  const { data: projectsData, isLoading: projLoading } = useGetProjectsQuery({ limit: 1000 });
   
   const allProjects = projectsData?.projects || [];
   const now = new Date();
@@ -27,16 +27,19 @@ export default function DashboardPage() {
     (!p.deliveryDate || new Date(p.deliveryDate) >= now)
   ).length;
 
-  const safeStats = dashboardData?.stats || { 
-    totalCount: total, 
-    activeProjectsCount: onTrack + overdue, 
-    wipOnTrackCount: onTrack, 
-    completedCount: completed, 
-    overdueCount: overdue, 
-    totalRevenue: 0, 
-    teamMembersCount: 0, 
-    avgDeliveryDays: 0 
+  // Merge backend stats with local calculations to ensure UI is ALWAYS populated
+  const backendStats = dashboardData?.stats || {};
+  const safeStats = {
+    totalCount: backendStats.totalCount ?? total,
+    activeProjectsCount: backendStats.activeProjectsCount ?? (onTrack + overdue),
+    wipOnTrackCount: backendStats.wipOnTrackCount ?? onTrack,
+    completedCount: backendStats.completedCount ?? completed,
+    overdueCount: backendStats.overdueCount ?? overdue,
+    totalRevenue: backendStats.totalRevenue ?? 0,
+    teamMembersCount: backendStats.teamMembersCount ?? 0,
+    avgDeliveryDays: backendStats.avgDeliveryDays ?? 0,
   };
+
   const recentProjects = allProjects.slice(0, 5);
 
   if (statsLoading || projLoading) {

@@ -7,7 +7,11 @@ import {
   useMarkEarningPaidMutation,
   useGetKpiEarningsQuery,
   useGetMyEarningsQuery,
+  useUpdateEarningMutation,
 } from "@/lib/store/api";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -17,11 +21,17 @@ export default function KPIPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "PROJECT_MANAGER";
 
-  // Admin queries
+  // Admin state & queries
+  const [page, setPage] = useState(1);
   const { data: kpiSettings } = useGetKpiSettingsQuery(undefined, { skip: !isAdmin });
   const { data: teamData = [], isLoading: teamLoading } = useGetTeamQuery(undefined, { skip: !isAdmin });
-  const { data: earningsData } = useGetKpiEarningsQuery({}, { skip: !isAdmin });
-  const [markPaid] = useMarkEarningPaidMutation();
+  const { data: earningsData } = useGetKpiEarningsQuery({ page, limit: 10 }, { skip: !isAdmin });
+  const [markPaid, { isLoading: isMarkingPaid }] = useMarkEarningPaidMutation();
+  const [updateEarning] = useUpdateEarningMutation();
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  
+  // Settle modal state
+  const [settleMember, setSettleMember] = useState<any>(null);
 
   // Member queries
   const { data: myEarnings } = useGetMyEarningsQuery(undefined, { skip: isAdmin });
@@ -30,8 +40,40 @@ export default function KPIPage() {
     return <MemberEarningsView earnings={myEarnings} />;
   }
 
-  const activeUsers = Array.isArray(teamData) ? teamData.filter((u: any) => u.isActive) : [];
   const summary = earningsData?.summary || [];
+  const pagination = earningsData?.pagination || { page: 1, totalPages: 1 };
+
+  const handleSettlePayout = async () => {
+    if (!settleMember) return;
+    try {
+      const unpaid = earningsData?.earnings?.filter((e: any) => e.userId === settleMember.user.id && !e.isPaid) || [];
+      if (unpaid.length === 0) {
+        toast.error("No pending payouts found for this operative.");
+        setSettleMember(null);
+        return;
+      }
+      
+      const promise = Promise.all(unpaid.map((e: any) => markPaid(e.id).unwrap()));
+      await toast.promise(promise, {
+        loading: `Clearing ${unpaid.length} payouts for ${settleMember.user.displayName}...`,
+        success: `Total $${settleMember.totalPending.toFixed(2)} disbursed to ${settleMember.user.displayName}.`,
+        error: "Failed to settle all payouts. Please try again.",
+      });
+      
+      setSettleMember(null);
+    } catch (err) {
+      console.error("Settlement failure:", err);
+    }
+  };
+
+  const handleUpdateEarning = async (id: string, data: any) => {
+    try {
+      await updateEarning({ id, data }).unwrap();
+      toast.success("Earning record updated.");
+    } catch (err) {
+      toast.error("Manual distribution update failed.");
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -55,7 +97,18 @@ export default function KPIPage() {
         </div>
       </div>
 
-      {/* KPI Distribution Card */}
+      <ConfirmModal 
+        isOpen={!!settleMember}
+        onClose={() => setSettleMember(null)}
+        onConfirm={handleSettlePayout}
+        title="Disburse Payouts?"
+        message={`Clear all pending payouts ($${settleMember?.totalPending.toFixed(2)}) for ${settleMember?.user.displayName}?`}
+        variant="primary"
+        confirmText="Authorize Payout"
+        isLoading={isMarkingPaid}
+      />
+
+      {/* KPI Rules Card */}
       <section className="bg-surface rounded-2xl p-6 border border-outline-variant/10 shadow-xl">
         <div className="flex justify-between items-start mb-8">
           <div>
@@ -80,18 +133,10 @@ export default function KPIPage() {
         </div>
 
         <div className="relative h-10 w-full bg-surface-container-lowest rounded-full overflow-hidden flex shadow-inner">
-          <div className="h-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-700" style={{ width: `${kpiSettings?.frontendPct ?? 43}%` }}>
-            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">FE</span>
-          </div>
-          <div className="h-full bg-gradient-to-r from-secondary-container to-secondary transition-all duration-700" style={{ width: `${kpiSettings?.backendPct ?? 32}%` }}>
-            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">BE</span>
-          </div>
-          <div className="h-full bg-gradient-to-r from-tertiary-container to-tertiary transition-all duration-700" style={{ width: `${kpiSettings?.uiuxPct ?? 25}%` }}>
-            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">UI</span>
-          </div>
-          <div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all duration-700" style={{ width: `${kpiSettings?.appDevPct ?? 0}%` }}>
-            <span className="text-[10px] font-bold text-white flex items-center justify-center h-full">APP</span>
-          </div>
+          <div className="h-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-700" style={{ width: `${kpiSettings?.frontendPct ?? 43}%` }}></div>
+          <div className="h-full bg-gradient-to-r from-secondary-container to-secondary transition-all duration-700" style={{ width: `${kpiSettings?.backendPct ?? 32}%` }}></div>
+          <div className="h-full bg-gradient-to-r from-tertiary-container to-tertiary transition-all duration-700" style={{ width: `${kpiSettings?.uiuxPct ?? 25}%` }}></div>
+          <div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all duration-700" style={{ width: `${kpiSettings?.appDevPct ?? 0}%` }}></div>
         </div>
       </section>
 
@@ -101,9 +146,28 @@ export default function KPIPage() {
           <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">payments</span>Member Earnings Management
           </h3>
-          <button className="bg-surface-container-highest px-4 py-2 rounded-lg text-xs font-bold font-headline hover:bg-surface-bright transition-all flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">download</span>Export CSV
-          </button>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg">
+              <button 
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="p-1 disabled:opacity-30 hover:bg-surface-container transition-colors rounded"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_left</span>
+              </button>
+              <span className="text-[11px] font-mono font-bold px-2">PAGE {page} / {pagination.totalPages}</span>
+              <button 
+                disabled={page >= pagination.totalPages}
+                onClick={() => setPage(p => p + 1)}
+                className="p-1 disabled:opacity-30 hover:bg-surface-container transition-colors rounded"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
+            </div>
+            <button className="bg-surface-container-highest px-4 py-2 rounded-lg text-xs font-bold font-headline hover:bg-surface-bright transition-all flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">download</span>Export CSV
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -125,64 +189,124 @@ export default function KPIPage() {
                   <td colSpan={7} className="py-4 px-4"><div className="h-8 rounded-lg bg-surface-container-low" /></td>
                 </tr>
               ))}
-              {!teamLoading && activeUsers.map((user: any) => {
-                const userSummary = summary.find((s: any) => s.user?.id === user.id);
-                const pending = userSummary?.totalPending ?? 0;
-                return (
-                  <tr key={user.id} className="bg-surface-container-low hover:bg-surface-container transition-colors rounded-xl">
-                    <td className="py-4 px-4 rounded-l-xl">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary border border-primary/30">
-                          {user.displayName?.charAt(0)}
-                        </div>
-                        <span className="font-semibold text-on-surface">{user.displayName}</span>
+              {!teamLoading && summary.map((sum: any) => (
+                <tr key={sum.user.id} className="bg-surface-container-low hover:bg-surface-container transition-colors rounded-xl">
+                  <td className="py-4 px-4 rounded-l-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary border border-primary/30">
+                        {sum.user.displayName?.charAt(0)}
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="px-2 py-1 bg-violet-500/10 text-violet-400 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                        {user.role.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 font-mono text-slate-400">{userSummary?.projectCount ?? "--"}</td>
-                    <td className="py-4 px-4 font-mono text-on-surface font-medium">${(userSummary?.totalEarned ?? 0).toFixed(2)}</td>
-                    <td className="py-4 px-4 font-mono text-orange-400/80">${(userSummary?.totalPending ?? 0).toFixed(2)}</td>
-                    <td className="py-4 px-4 font-mono text-emerald-400/80">${(userSummary?.totalPaid ?? 0).toFixed(2)}</td>
-                    <td className="py-4 px-4 text-right rounded-r-xl">
-                      {pending > 0 && (
+                      <span className="font-semibold text-on-surface">{sum.user.displayName}</span>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4 text-outline uppercase text-[10px] font-bold tracking-widest">{sum.user.role?.replace(/_/g, " ")}</td>
+                  <td className="py-4 px-4 font-mono text-slate-400">{sum.projectCount}</td>
+                  <td className="py-4 px-4 font-mono text-on-surface font-medium">${sum.totalEarned.toFixed(2)}</td>
+                  <td className="py-4 px-4 font-mono text-orange-400">${sum.totalPending.toFixed(2)}</td>
+                  <td className="py-4 px-4 font-mono text-emerald-400">${sum.totalPaid.toFixed(2)}</td>
+                  <td className="py-4 px-4 text-right rounded-r-xl">
+                    <div className="flex items-center justify-end gap-2">
+                       <button
+                        onClick={() => setEditingUserId(sum.user.id)}
+                        className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-primary hover:text-on-primary transition-all uppercase tracking-tighter"
+                      >
+                        Distribution
+                      </button>
+                      {sum.totalPending > 0 && (
                         <button
-                          onClick={async () => {
-                            if (window.confirm(`Clear pending payout of $${pending.toFixed(2)} for ${user.displayName}?`)) {
-                              // Find all unpaid earnings for this user and mark them paid
-                              const unpaid = earningsData?.earnings?.filter((e: any) => e.userId === user.id && !e.isPaid) || [];
-                              for (const earning of unpaid) {
-                                await markPaid(earning.id);
-                              }
-                            }
-                          }}
-                          className="text-[11px] font-bold text-emerald-400 hover:text-on-primary hover:bg-emerald-500 transition-all border border-emerald-400/20 px-3 py-1.5 rounded-lg font-headline uppercase tracking-tighter"
+                          onClick={() => setSettleMember(sum)}
+                          className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-500 hover:text-white transition-all uppercase tracking-tighter"
                         >
-                          Settle Payout
+                          Settle
                         </button>
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {!teamLoading && activeUsers.length === 0 && (
-                <tr><td colSpan={7} className="py-10 text-center text-on-surface-variant font-mono text-sm">No active team members.</td></tr>
-              )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* Live Telemetry Pulse */}
-      <div className="fixed bottom-8 right-8 flex items-center gap-3 bg-surface-container-high px-4 py-2 rounded-full border border-primary/20 shadow-2xl z-50">
-        <div className="relative flex items-center justify-center">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-primary/20 animate-ping"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+      {editingUserId && (
+        <DistributionModal 
+          userId={editingUserId} 
+          onClose={() => setEditingUserId(null)} 
+          earnings={earningsData?.earnings?.filter((e: any) => e.userId === editingUserId) || []}
+          onUpdate={handleUpdateEarning}
+        />
+      )}
+    </div>
+  );
+}
+
+function DistributionModal({ onClose, earnings, onUpdate }: any) {
+  const user = earnings[0]?.user;
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+       <div className="bg-surface w-full max-w-4xl max-h-[85vh] rounded-3xl border border-outline-variant/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div className="px-8 py-6 border-b border-outline-variant/5 flex justify-between items-center bg-surface-container-low/30">
+          <div>
+            <h2 className="text-2xl font-bold font-headline tracking-tighter text-on-surface">KPI Distribution Control</h2>
+            <p className="text-sm text-outline text-mono uppercase tracking-widest mt-1">OPERATIVE: {user?.displayName} • {user?.role}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+            <span className="material-symbols-outlined">close</span>
+          </button>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface font-mono">Live Telemetry Active</span>
+        
+        <div className="flex-1 overflow-y-auto p-8">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-[11px] font-bold text-outline uppercase tracking-widest border-b border-outline-variant/5">
+                <th className="pb-4">Project</th>
+                <th className="pb-4">Contract</th>
+                <th className="pb-4">KPI (%)</th>
+                <th className="pb-4">Manual Distribution ($)</th>
+                <th className="pb-4 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/5">
+              {earnings.map((e: any) => (
+                <tr key={e.id} className="group transition-colors border-b border-outline-variant/5">
+                  <td className="py-5 font-headline font-bold text-violet-300">{e.project?.clientName}</td>
+                  <td className="py-5 font-mono text-sm text-outline">${e.project?.totalPayment?.toLocaleString()}</td>
+                  <td className="py-5">
+                    <input 
+                      type="number"
+                      defaultValue={e.percentage}
+                      onBlur={(el) => onUpdate(e.id, { percentage: parseFloat(el.target.value) })}
+                      className="bg-surface-container-lowest border border-outline-variant/10 rounded px-2 py-1 w-16 font-mono text-sm focus:border-primary outline-none transition-colors"
+                    />
+                    <span className="text-xs ml-2 text-outline">%</span>
+                  </td>
+                  <td className="py-5">
+                    <input 
+                      type="number"
+                      defaultValue={e.amount}
+                      onBlur={(el) => onUpdate(e.id, { amount: parseFloat(el.target.value) })}
+                      className="bg-surface-container-lowest border border-outline-variant/10 rounded px-2 py-1 w-24 font-mono text-sm font-bold text-emerald-400 focus:border-emerald-500 outline-none transition-colors"
+                    />
+                  </td>
+                  <td className="py-5 text-right">
+                    <label className="flex items-center justify-end gap-2 cursor-pointer">
+                      <span className={cn("text-[10px] font-bold uppercase tracking-tighter", e.isPaid ? "text-emerald-400" : "text-orange-400")}>
+                        {e.isPaid ? "Disbursed" : "Pending"}
+                      </span>
+                      <input 
+                        type="checkbox" 
+                        checked={e.isPaid} 
+                        onChange={() => onUpdate(e.id, { isPaid: !e.isPaid })}
+                        className="w-4 h-4 rounded border-outline-variant accent-primary"
+                      />
+                    </label>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -196,7 +320,6 @@ function MemberEarningsView({ earnings }: { earnings: any }) {
         <p className="text-on-surface-variant text-sm mt-1">Your KPI earnings summary</p>
       </header>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: "Total Earned", value: earnings?.totalEarned ?? 0, color: "border-primary", textColor: "text-primary" },
@@ -210,7 +333,6 @@ function MemberEarningsView({ earnings }: { earnings: any }) {
         ))}
       </div>
 
-      {/* Earnings Table */}
       <div className="bg-surface rounded-2xl border border-outline-variant/10 shadow-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant/10">
           <h3 className="text-sm font-bold font-headline uppercase tracking-widest">Earnings History</h3>
@@ -240,9 +362,6 @@ function MemberEarningsView({ earnings }: { earnings: any }) {
                   </td>
                 </tr>
               ))}
-              {(!earnings?.earnings?.length) && (
-                <tr><td colSpan={5} className="py-16 text-center text-on-surface-variant font-mono text-sm">No earnings yet.</td></tr>
-              )}
             </tbody>
           </table>
         </div>

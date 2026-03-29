@@ -6,6 +6,9 @@ declare module "next-auth" {
       id: string;
       role: string;
       displayName: string;
+      phone?: string;
+      employeeId?: string;
+      githubUsername?: string;
     } & DefaultSession["user"];
   }
 
@@ -13,6 +16,9 @@ declare module "next-auth" {
     id: string;
     role: string;
     displayName: string;
+    phone?: string;
+    employeeId?: string;
+    githubUsername?: string;
   }
 }
 
@@ -21,5 +27,8 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     displayName: string;
+    phone?: string;
+    employeeId?: string;
+    githubUsername?: string;
   }
 }

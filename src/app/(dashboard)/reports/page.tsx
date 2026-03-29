@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useGetReportsSummaryQuery, useGetProjectsQuery } from "@/lib/store/api";
 import { clsx, type ClassValue } from "clsx";

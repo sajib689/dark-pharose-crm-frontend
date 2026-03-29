@@ -27,7 +27,7 @@ export default function LoginForm() {
       if (result?.error) {
         setError("Invalid credentials or unauthorized access.");
       } else {
-        router.push("/dashboard");
+        router.push("/");
         router.refresh();
       }
     } catch (err) {

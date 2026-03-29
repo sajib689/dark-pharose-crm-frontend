@@ -1,10 +1,13 @@
-"use client";
-
-import { useGetTeamQuery, useDeleteTeamMemberMutation, useToggleMemberStatusMutation } from "@/lib/store/api";
+"use client"
+export const dynamic = "force-dynamic";
+import { useGetTeamQuery, useDeleteTeamMemberMutation, useToggleMemberStatusMutation, useResetMemberPasswordMutation, useUpdateMemberRoleMutation } from "@/lib/store/api";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import NewMemberModal from "@/components/team/NewMemberModal";
 import MemberProfileModal from "@/components/team/MemberProfileModal";
+import PasswordResetModal from "@/components/team/PasswordResetModal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { toast } from "react-hot-toast";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -26,30 +29,61 @@ const ROLE_LABELS: Record<string, string> = {
 export default function TeamPage() {
   const { data: session } = useSession();
   const { data: teamData, isLoading, isError } = useGetTeamQuery();
-  const [deleteMember] = useDeleteTeamMemberMutation();
-  const [toggleStatus] = useToggleMemberStatusMutation();
+  const [deleteMember, { isLoading: isDeleting }] = useDeleteTeamMemberMutation();
+  const [toggleStatus, { isLoading: isToggling }] = useToggleMemberStatusMutation();
+  const [resetPassword, { isLoading: isResetting }] = useResetMemberPasswordMutation();
+  const [updateRole] = useUpdateMemberRoleMutation();
+
   const [showInvite, setShowInvite] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  
+  // Modal states
+  const [memberToDelete, setMemberToDelete] = useState<any>(null);
+  const [memberToToggle, setMemberToToggle] = useState<any>(null);
+  const [memberToReset, setMemberToReset] = useState<any>(null);
 
-  const users = teamData?.teams || teamData?.users || [];
+  const users = teamData || [];
   const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "PROJECT_MANAGER";
 
-  const handleDeleteMember = async (id: string) => {
-    if (window.confirm("⚠️ IRREVERSIBLE ACTION: Purge this operative from the system?")) {
-      try {
-        await deleteMember(id).unwrap();
-      } catch (err) {
-        console.error("Failed to delete member:", err);
-        alert("CRITICAL ERROR: Failed to purge operative.");
-      }
+  const handleDeleteMember = async () => {
+    if (!memberToDelete) return;
+    try {
+      await deleteMember(memberToDelete.id).unwrap();
+      toast.success(`Operative ${memberToDelete.displayName} purged from system.`);
+      setMemberToDelete(null);
+    } catch (err) {
+      toast.error("Critical failure: Failed to purge operative.");
     }
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+  const handleToggleStatus = async () => {
+    if (!memberToToggle) return;
     try {
-      await toggleStatus({ id, isActive: !currentStatus }).unwrap();
+      await toggleStatus({ id: memberToToggle.id, isActive: !memberToToggle.isActive }).unwrap();
+      toast.success(`Operative ${memberToToggle.displayName} status inverted.`);
+      setMemberToToggle(null);
     } catch (err) {
-      console.error("Failed to toggle status:", err);
+      toast.error("Failed to reconfigure operative status.");
+    }
+  };
+
+  const handleUpdateRole = async (member: any, role: string) => {
+    try {
+      await updateRole({ id: member.id, role }).unwrap();
+      toast.success(`Operative ${member.displayName} reassigned to ${ROLE_LABELS[role] || role}.`);
+    } catch (err) {
+      toast.error("Failed to reconfigure operative role.");
+    }
+  };
+
+  const handleResetPassword = async (password: string) => {
+    if (!memberToReset) return;
+    try {
+      await resetPassword({ id: memberToReset.id, password }).unwrap();
+      toast.success("Access key updated successfully.");
+      setMemberToReset(null);
+    } catch (err) {
+      toast.error("Authorization update failed.");
     }
   };
 
@@ -89,9 +123,43 @@ export default function TeamPage() {
           )}
         </div>
       </header>
-      
+
+      {/* Feature Modals */}
       {showInvite && <NewMemberModal onClose={() => setShowInvite(false)} />}
       <MemberProfileModal memberId={selectedMemberId} onClose={() => setSelectedMemberId(null)} />
+      
+      <ConfirmModal 
+        isOpen={!!memberToDelete}
+        onClose={() => setMemberToDelete(null)}
+        onConfirm={handleDeleteMember}
+        title="Purge Operative?"
+        message={`Are you sure you want to permanently delete ${memberToDelete?.displayName}? This action cannot be undone.`}
+        variant="danger"
+        confirmText="Purge Operative"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmModal 
+        isOpen={!!memberToToggle}
+        onClose={() => setMemberToToggle(null)}
+        onConfirm={handleToggleStatus}
+        title={memberToToggle?.isActive ? "Suspend Operative?" : "Activate Operative?"}
+        message={memberToToggle?.isActive 
+          ? `Suspend all system authorizations for ${memberToToggle?.displayName}?` 
+          : `Restore full system authorizations for ${memberToToggle?.displayName}?`
+        }
+        variant={memberToToggle?.isActive ? "warning" : "primary"}
+        confirmText={memberToToggle?.isActive ? "Suspend Access" : "Activate Access"}
+        isLoading={isToggling}
+      />
+
+      <PasswordResetModal 
+        isOpen={!!memberToReset}
+        onClose={() => setMemberToReset(null)}
+        onConfirm={handleResetPassword}
+        userName={memberToReset?.displayName || ""}
+        isLoading={isResetting}
+      />
 
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
@@ -149,7 +217,7 @@ export default function TeamPage() {
               </div>
               <div className="px-6 py-4 bg-surface-container-low/50 flex items-center justify-between">
                 {user.isActive ? (
-                  <button 
+                  <button
                     onClick={() => setSelectedMemberId(user.id)}
                     className="text-primary text-xs font-bold uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-2"
                   >
@@ -158,18 +226,34 @@ export default function TeamPage() {
                 ) : (
                   <span className="text-error text-[10px] font-bold uppercase tracking-widest">Access Revoked</span>
                 )}
-                
+
                 {isAdmin && session?.user?.email !== user.email && (
                   <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => handleToggleStatus(user.id, user.isActive)}
+                    <button
+                      onClick={() => setMemberToReset(user)}
+                      className="text-primary/40 hover:text-primary text-[18px] material-symbols-outlined transition-colors"
+                      title="Reset Password"
+                    >
+                      key
+                    </button>
+                    {session?.user?.role === "SUPER_ADMIN" && (
+                      <button
+                        onClick={() => handleUpdateRole(user, user.role === "SUPER_ADMIN" ? "FRONTEND_DEV" : "SUPER_ADMIN")}
+                        className={cn("text-[18px] material-symbols-outlined transition-colors", user.role === "SUPER_ADMIN" ? "text-primary" : "text-primary/40 hover:text-primary")}
+                        title={user.role === "SUPER_ADMIN" ? "Demote from Admin" : "Promote to Admin"}
+                      >
+                        shield_person
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setMemberToToggle(user)}
                       className={cn("text-[18px] material-symbols-outlined transition-colors", user.isActive ? "text-orange-400 hover:text-orange-300" : "text-green-400 hover:text-green-300")}
                       title={user.isActive ? "Suspend Operative" : "Activate Operative"}
                     >
                       {user.isActive ? "block" : "check_circle"}
                     </button>
-                    <button 
-                      onClick={() => handleDeleteMember(user.id)}
+                    <button
+                      onClick={() => setMemberToDelete(user)}
                       className="text-error/40 hover:text-error text-[18px] material-symbols-outlined transition-colors"
                       title="Purge Operative"
                     >

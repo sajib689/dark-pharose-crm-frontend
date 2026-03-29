@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "Mission Control for Dark Pharos Studio",
 };
 
+import { Toaster } from "react-hot-toast";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
@@ -31,7 +33,23 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-surface-container-lowest text-on-surface`}
       >
         <StoreProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <Toaster 
+              position="bottom-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#1A1C1E',
+                  color: '#E2E2E6',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  borderRadius: '12px',
+                },
+              }} 
+            />
+          </AuthProvider>
         </StoreProvider>
       </body>
     </html>

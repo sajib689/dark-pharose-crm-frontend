@@ -23,7 +23,7 @@ export const pharosApi = createApi({
   }),
 
   // Cache tag types for automatic cache invalidation
-  tagTypes: ["Projects", "Team", "KPI", "Earnings", "Notifications", "Dashboard", "Reports"],
+  tagTypes: ["Projects", "Team", "KPI", "Earnings", "Notifications", "Dashboard", "Reports", "DailyReports"],
 
   endpoints: (builder) => ({
     // ─── DASHBOARD ─────────────────────────────────────────────
@@ -91,8 +91,9 @@ export const pharosApi = createApi({
     }),
 
     // ─── TEAM ──────────────────────────────────────────────────
-    getTeam: builder.query<any, void>({
+    getTeam: builder.query<any[], void>({
       query: () => "/team",
+      transformResponse: (response: { teams: any[] }) => response.teams,
       providesTags: ["Team"],
     }),
     getTeamMember: builder.query<any, string>({
@@ -111,6 +112,14 @@ export const pharosApi = createApi({
       query: ({ id, isActive }) => ({ url: `/team/${id}/status`, method: "PATCH", body: { isActive } }),
       invalidatesTags: ["Team"],
     }),
+    resetMemberPassword: builder.mutation<any, { id: string; password: string }>({
+      query: ({ id, password }) => ({ url: `/team/${id}/password`, method: "PATCH", body: { password } }),
+      invalidatesTags: ["Team"],
+    }),
+    updateMemberRole: builder.mutation<any, { id: string; role: string }>({
+      query: ({ id, role }) => ({ url: `/team/${id}/role`, method: "PATCH", body: { role } }),
+      invalidatesTags: ["Team"],
+    }),
     deleteTeamMember: builder.mutation<any, string>({
       query: (id) => ({ url: `/team/${id}`, method: "DELETE" }),
       invalidatesTags: ["Team"],
@@ -125,12 +134,14 @@ export const pharosApi = createApi({
       query: (body) => ({ url: "/kpi", method: "PUT", body }),
       invalidatesTags: ["KPI"],
     }),
-    getKpiEarnings: builder.query<any, { month?: string; year?: string; userId?: string }>({
+    getKpiEarnings: builder.query<any, { month?: string; year?: string; userId?: string; page?: number; limit?: number }>({
       query: (params = {}) => {
         const q = new URLSearchParams();
         if (params.month) q.set("month", params.month);
         if (params.year) q.set("year", params.year);
         if (params.userId) q.set("userId", params.userId);
+        if (params.page) q.set("page", params.page.toString());
+        if (params.limit) q.set("limit", params.limit.toString());
         return `/kpi/earnings${q.toString() ? `?${q}` : ""}`;
       },
       providesTags: ["Earnings"],
@@ -138,6 +149,10 @@ export const pharosApi = createApi({
     getMyEarnings: builder.query<any, void>({
       query: () => "/kpi/earnings/me",
       providesTags: ["Earnings"],
+    }),
+    updateEarning: builder.mutation<any, { id: string; data: any }>({
+      query: ({ id, data }) => ({ url: `/kpi/earnings/${id}`, method: "PATCH", body: data }),
+      invalidatesTags: ["Earnings", "Notifications"],
     }),
     markEarningPaid: builder.mutation<any, string>({
       query: (id) => ({ url: `/kpi/earnings/${id}/pay`, method: "PATCH" }),
@@ -173,6 +188,29 @@ export const pharosApi = createApi({
       query: () => ({ url: "/sync/projects", method: "POST" }),
       invalidatesTags: ["Projects", "Dashboard", "KPI", "Earnings"],
     }),
+    syncMembers: builder.mutation<{ message: string; count: number }, void>({
+      query: () => ({ url: "/sync/members", method: "POST" }),
+      invalidatesTags: ["Team", "Dashboard"],
+    }),
+
+    // ─── DAILY REPORTS ─────────────────────────────────────────
+    getDailyReports: builder.query<any, { date?: string; userId?: string }>({
+      query: (params = {}) => {
+        const q = new URLSearchParams();
+        if (params.date) q.set("date", params.date);
+        if (params.userId) q.set("userId", params.userId);
+        return `/daily-reports/admin${q.toString() ? `?${q}` : ""}`;
+      },
+      providesTags: ["DailyReports"],
+    }),
+    getMyDailyReports: builder.query<any, void>({
+      query: () => "/daily-reports/my",
+      providesTags: ["DailyReports"],
+    }),
+    submitDailyReport: builder.mutation<any, { type: "SOD" | "EOD"; content: string; mood: string }>({
+      query: (body) => ({ url: "/daily-reports", method: "POST", body }),
+      invalidatesTags: ["DailyReports"],
+    }),
 
     // ─── USER ──────────────────────────────────────────────────
     getUserProfile: builder.query<any, void>({
@@ -206,12 +244,15 @@ export const {
   useCreateTeamMemberMutation,
   useUpdateTeamMemberMutation,
   useToggleMemberStatusMutation,
+  useResetMemberPasswordMutation,
+  useUpdateMemberRoleMutation,
   useDeleteTeamMemberMutation,
   // KPI
   useGetKpiSettingsQuery,
   useUpdateKpiSettingsMutation,
   useGetKpiEarningsQuery,
   useGetMyEarningsQuery,
+  useUpdateEarningMutation,
   useMarkEarningPaidMutation,
   // Notifications
   useGetNotificationsQuery,
@@ -222,6 +263,11 @@ export const {
   useGetReportsSummaryQuery,
   // Sync
   useSyncProjectsMutation,
+  useSyncMembersMutation,
+  // Daily Reports
+  useGetDailyReportsQuery,
+  useGetMyDailyReportsQuery,
+  useSubmitDailyReportMutation,
   // User
   useGetUserProfileQuery,
   useUpdateUserProfileMutation,

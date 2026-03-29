@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "immer": ["./node_modules/immer"],
+      "reselect": ["./node_modules/reselect"]
     }
   },
   "include": [

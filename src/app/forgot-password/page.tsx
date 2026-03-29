@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -23,11 +22,18 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     try {
-      await axios.post(`${API_URL}/auth/forgot-password`, { email });
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send OTP.");
+      
       setMessage("OTP sent to your email. Please check your inbox.");
       setStep(2);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send OTP.");
+      setError(err.message || "Failed to send OTP.");
     } finally {
       setIsLoading(false);
     }
@@ -43,13 +49,20 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      await axios.post(`${API_URL}/auth/reset-password`, { email, otp, newPassword });
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to reset password.");
+
       setMessage("Password reset successful! Redirecting to login...");
       setTimeout(() => {
         window.location.href = "/login";
       }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to reset password.");
+      setError(err.message || "Failed to reset password.");
     } finally {
       setIsLoading(false);
     }

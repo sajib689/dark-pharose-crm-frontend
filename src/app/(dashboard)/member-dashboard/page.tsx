@@ -1,9 +1,11 @@
 "use client";
 
-import { useGetMyProjectsQuery, useGetMyEarningsQuery, useGetNotificationsQuery } from "@/lib/store/api";
+import { useGetMyProjectsQuery, useGetMyEarningsQuery, useGetNotificationsQuery, useGetMyDailyReportsQuery } from "@/lib/store/api";
 import { useSession } from "next-auth/react";
 import StatusPill from "@/components/ui/StatusPill";
 import Link from "next/link";
+import { useState } from "react";
+import DailyReportModal from "@/components/dashboard/DailyReportModal";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -14,6 +16,10 @@ export default function MemberDashboard() {
   const { data: projectsData, isLoading: projLoading } = useGetMyProjectsQuery();
   const { data: earnings } = useGetMyEarningsQuery();
   const { data: notificationsData } = useGetNotificationsQuery();
+  const { data: dailyReportsData } = useGetMyDailyReportsQuery();
+
+  const [reportType, setReportType] = useState<"SOD" | "EOD">("SOD");
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const projects = projectsData?.projects || [];
   const notifications = notificationsData?.notifications || [];
@@ -75,9 +81,20 @@ export default function MemberDashboard() {
                 Performance KPI tracking shows <span className="text-on-surface font-bold text-mono">${(earnings?.totalPending || 0).toFixed(0)}</span> in pending clearance.
               </p>
             </div>
-            <button className="md:ml-auto px-6 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-bold font-headline hover:scale-[0.98] transition-all whitespace-nowrap">
-              Post Status Update
-            </button>
+            <div className="md:ml-auto flex gap-3">
+              <button 
+                onClick={() => { setReportType("SOD"); setIsReportModalOpen(true); }}
+                className="px-5 py-2.5 bg-primary/20 text-primary border border-primary/30 rounded-xl text-[11px] font-bold font-headline uppercase tracking-widest hover:bg-primary/30 transition-all"
+              >
+                Morning SOD
+              </button>
+              <button 
+                onClick={() => { setReportType("EOD"); setIsReportModalOpen(true); }}
+                className="px-5 py-2.5 bg-primary text-on-primary rounded-xl text-[11px] font-bold font-headline uppercase tracking-widest hover:scale-[0.98] transition-all"
+              >
+                Evening EOD
+              </button>
+            </div>
           </div>
         </div>
 
@@ -215,6 +232,12 @@ export default function MemberDashboard() {
           </div>
         </div>
       </aside>
+
+      <DailyReportModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+        type={reportType} 
+      />
     </div>
   );
 }

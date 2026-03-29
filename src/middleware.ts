@@ -6,17 +6,22 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
     const role = token?.role as string | undefined;
+    const isAdmin = role === "SUPER_ADMIN" || role === "PROJECT_MANAGER";
 
-    // Redirect root to dashboard or login
+    // 1. Root redirect (Internal routing after login)
     if (pathname === "/") {
       if (token) {
-        const role = token.role as string;
-        if (role === "SUPER_ADMIN" || role === "PROJECT_MANAGER") {
+        if (isAdmin) {
           return NextResponse.redirect(new URL("/dashboard", req.url));
         }
-        return NextResponse.redirect(new URL("/dashboard/member-dashboard", req.url));
+        return NextResponse.redirect(new URL("/member-dashboard", req.url));
       }
       return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    // 2. Restricted dashboard access for non-admins
+    if (pathname === "/dashboard" && token && !isAdmin) {
+      return NextResponse.redirect(new URL("/member-dashboard", req.url));
     }
 
     return NextResponse.next();

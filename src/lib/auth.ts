@@ -42,17 +42,23 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
-        token.displayName = (user as any).displayName;
+        token.role = user.role;
+        token.displayName = user.displayName;
+        token.phone = (user as any).phone;
+        token.employeeId = (user as any).employeeId;
+        token.githubUsername = (user as any).githubUsername;
         token.accessToken = (user as any).token;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.displayName = token.displayName as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.displayName = token.displayName;
+        session.user.phone = token.phone;
+        session.user.employeeId = token.employeeId;
+        session.user.githubUsername = token.githubUsername;
         (session as any).accessToken = token.accessToken;
       }
       return session;
@@ -66,3 +72,7 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
+
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  console.error("CRITICAL: NEXTAUTH_SECRET is not set. Authentication will fail.");
+}

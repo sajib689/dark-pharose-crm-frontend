@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCreateTeamMemberMutation } from "@/lib/store/api";
+import { toast } from "react-hot-toast";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -48,9 +49,10 @@ export default function NewMemberModal({ onClose }: Props) {
     if (!validate()) return;
     try {
       await createMember(form).unwrap();
+      toast.success(`${form.displayName} has been successfully invited.`);
       onClose();
     } catch (err: any) {
-      alert(err?.data?.message || "Failed to invite member");
+      toast.error(err?.data?.message || "Failed to invite member");
     }
   };
 
